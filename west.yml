@@ -1,0 +1,15 @@
+manifest:
+  remotes:
+    - name: nrfcloud
+      url-base: https://github.com/nRFCloud
+    - name: nordic
+      url-base: https://github.com/nrfconnect
+  projects:
+    - name: sdk-nrf
+      path: nrf
+      remote: nrfcloud
+      revision: 512e7b96e0de5c8cd79142d116593e5071eae005
+      import: true
+  self:
+    path: lte-gateway
+
