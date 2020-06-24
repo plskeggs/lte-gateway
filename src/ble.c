@@ -129,7 +129,7 @@ static void chrc_attr_data_add(const struct bt_gatt_chrc *gatt_chrc,  connected_
 
 }
 
-static void ccc_attr_data_add(const struct bt_gatt_ccc *gatt_ccc, const struct bt_uuid* uuid, u16_t handle, connected_ble_devices* ble_conn_ptr)
+static void ccc_attr_data_add(const struct bt_uuid* uuid, u16_t handle, connected_ble_devices* ble_conn_ptr)
 {
 
         LOG_DBG("\tHandle: %d",handle);
@@ -144,10 +144,9 @@ static void attr_add(const struct bt_gatt_dm *dm,
                      connected_ble_devices* ble_conn_ptr)
 {
         char str[UUID_STR_LEN];
-        /* NEED TO RESOLVE addr->user_data not being present now in 1.3.0 */
-	const struct bt_gatt_service_val *gatt_service = NULL;
-	const struct bt_gatt_chrc *gatt_chrc = NULL;
-	const struct bt_gatt_ccc *gatt_ccc = NULL;
+        /* PETE: NEED TO RESOLVE attr->user_data not being present now in 1.3.0 */
+	const struct bt_gatt_service_val *gatt_service = attr->user_data;
+	const struct bt_gatt_chrc *gatt_chrc = attr->user_data;
 
         bt_uuid_get_str(attr->uuid, str, sizeof(str));
 
@@ -159,7 +158,7 @@ static void attr_add(const struct bt_gatt_dm *dm,
         } else if (bt_uuid_cmp(attr->uuid, BT_UUID_GATT_CHRC) == 0) {
                 chrc_attr_data_add(gatt_chrc, ble_conn_ptr);
         } else if (bt_uuid_cmp(attr->uuid, BT_UUID_GATT_CCC) == 0) {
-                ccc_attr_data_add(gatt_ccc, attr->uuid, attr->handle, ble_conn_ptr);
+                ccc_attr_data_add(attr->uuid, attr->handle, ble_conn_ptr);
         }
 }
 
@@ -196,7 +195,7 @@ void ble_dm_data_add(struct bt_gatt_dm *dm)
 
 }
 
-/*Thread resposible for transfering ble data over MQTT*/
+/*Thread responsible for transfering ble data over MQTT*/
 void send_notify_data(int unused1, int unused2, int unused3)
 {
 
