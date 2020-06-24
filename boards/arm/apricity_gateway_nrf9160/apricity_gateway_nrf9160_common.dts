@@ -222,13 +222,13 @@
 
 / {
 	/* SRAM allocated and used by the BSD library */
-	sram0_bsd: memory@20008000 {
+	sram0_bsd: memory@20010000 {
 		device_type = "memory";
 		compatible = "mmio-sram";
 	};
 
 	/* SRAM allocated to the Non-Secure image */
-	sram0_ns: memory@20018000 {
+	sram0_ns: memory@20020000 {
 		device_type = "memory";
 		compatible = "mmio-sram";
 	};

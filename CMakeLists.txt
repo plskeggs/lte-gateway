@@ -6,12 +6,13 @@
 
 cmake_minimum_required(VERSION 3.13.1)
 project(lte-ble-gateway)
+
+set(BOARD_ROOT ${CMAKE_CURRENT_LIST_DIR})
+#set(BOARD apricity_gateway_nrf9160ns)
+
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 zephyr_compile_definitions(PROJECT_NAME=${PROJECT_NAME})
 zephyr_compile_definitions(_POSIX_C_SOURCE=200809L)
-
-set(BOARD_ROOT ${CMAKE_CURRENT_LIST_DIR})
-set(BOARD apricity_gateway_nrf9160)
 
 # This sample runs as a non-secure application on nRF91. Therefore, it
 # requires the secure_partition_manager that prepares the required

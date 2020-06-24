@@ -8,9 +8,25 @@
 #include <drivers/uart.h>
 #include <device.h>
 
-#define RESET_PIN 13
+#define RESET_PIN CONFIG_BOARD_NRF52840_GPIO_RESET_PIN
 
-int bt_hci_transport_setup(struct device *h4)
+
+/* PETE: need to resolve header issue -- drivers/uart.h is found
+   in modules, not in zephyr as it should be */
+static int uart_fifo_read(struct device *dev, u8_t *rx_data,
+				 const int size)
+{
+	const struct uart_driver_api *api =
+		(const struct uart_driver_api *)dev->driver_api;
+
+	if (api->fifo_read) {
+		return api->fifo_read(dev, rx_data, size);
+	}
+
+	return 0;
+}
+
+int bt_hci_transport_setup(struct device *dev)
 {
 	int err;
 	char c;
@@ -29,7 +45,7 @@ int bt_hci_transport_setup(struct device *h4)
 
 	/* Reset the nRF52840 and let it wait until the pin is
 	 * pulled low again before running to main to ensure
-	 * that it won't send any data until the H4 device
+	 * that it won't send any data until the DEV device
 	 * is setup and ready to receive.
 	 */
 	err = gpio_pin_set(port, RESET_PIN, 1);
@@ -45,7 +61,7 @@ int bt_hci_transport_setup(struct device *h4)
 	k_sleep(K_MSEC(10));
 
 	/* Drain bytes */
-	while (uart_fifo_read(h4, &c, 1)) {
+	while (uart_fifo_read(dev, &c, 1)) {
 		continue;
 	}
 
