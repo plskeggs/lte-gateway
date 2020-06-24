@@ -9,7 +9,6 @@ cmake_minimum_required(VERSION 3.13.1)
 set(BOARD_ROOT ${CMAKE_CURRENT_LIST_DIR})
 
 set(spm_CONF_FILE
-#    prj.conf
     ${CMAKE_CURRENT_SOURCE_DIR}/child_secure_partition_manager.conf)
 
 #set(PM_STATIC_YML_FILE
