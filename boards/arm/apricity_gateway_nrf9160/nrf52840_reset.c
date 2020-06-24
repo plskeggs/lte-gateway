@@ -13,18 +13,7 @@
 
 /* PETE: need to resolve header issue -- drivers/uart.h is found
    in modules, not in zephyr as it should be */
-static int uart_fifo_read(struct device *dev, u8_t *rx_data,
-				 const int size)
-{
-	const struct uart_driver_api *api =
-		(const struct uart_driver_api *)dev->driver_api;
-
-	if (api->fifo_read) {
-		return api->fifo_read(dev, rx_data, size);
-	}
-
-	return 0;
-}
+extern int uart_fifo_read(struct device *dev, u8_t *rx_data, const int size);
 
 int bt_hci_transport_setup(struct device *dev)
 {
