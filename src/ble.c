@@ -21,7 +21,7 @@
 #include "nrf_cloud_transport.h"
 #include "ble_conn_mgr.h"
 
-#define SEND_NOTIFY_STACK_SIZE 2048
+#define SEND_NOTIFY_STACK_SIZE 4096 // 2048
 #define SEND_NOTIFY_PRIORITY 9
 
 #define SUBSCRIPTION_LIMIT 4
@@ -145,6 +145,11 @@ static void attr_add(const struct bt_gatt_dm *dm,
 {
         char str[UUID_STR_LEN];
         /* PETE: NEED TO RESOLVE attr->user_data not being present now in 1.3.0 */
+
+	// perhaps use:
+	// struct bt_gatt_service_val *bt_gatt_dm_attr_service_val(const struct bt_gatt_dm_attr *attr)
+	// struct bt_gatt_chrc *bt_gatt_dm_attr_chrc_val(const struct bt_gatt_dm_attr *attr)
+
 	const struct bt_gatt_service_val *gatt_service = attr->user_data;
 	const struct bt_gatt_chrc *gatt_chrc = attr->user_data;
 

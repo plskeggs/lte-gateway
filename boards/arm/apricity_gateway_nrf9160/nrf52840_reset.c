@@ -13,9 +13,9 @@
 
 /* PETE: need to resolve header issue -- drivers/uart.h is found
    in modules, not in zephyr as it should be */
-extern int uart_fifo_read(struct device *dev, u8_t *rx_data, const int size);
+extern int uart_fifo_read(struct device *h4, u8_t *rx_data, const int size);
 
-int bt_hci_transport_setup(struct device *dev)
+int bt_hci_transport_setup(struct device *h4)
 {
 	int err;
 	char c;
@@ -34,7 +34,7 @@ int bt_hci_transport_setup(struct device *dev)
 
 	/* Reset the nRF52840 and let it wait until the pin is
 	 * pulled low again before running to main to ensure
-	 * that it won't send any data until the DEV device
+	 * that it won't send any data until the H4 device
 	 * is setup and ready to receive.
 	 */
 	err = gpio_pin_set(port, RESET_PIN, 1);
@@ -50,7 +50,7 @@ int bt_hci_transport_setup(struct device *dev)
 	k_sleep(K_MSEC(10));
 
 	/* Drain bytes */
-	while (uart_fifo_read(dev, &c, 1)) {
+	while (uart_fifo_read(h4, &c, 1)) {
 		continue;
 	}
 

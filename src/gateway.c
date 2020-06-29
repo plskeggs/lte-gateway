@@ -21,7 +21,7 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(gateway, CONFIG_APRICITY_GATEWAY_LOG_LEVEL);
 
-#define CLOUD_PROC_STACK_SIZE 2048
+#define CLOUD_PROC_STACK_SIZE 4096 // 2048
 #define CLOUD_PROC_PRIORITY 5
 
 u8_t value_buf[256];

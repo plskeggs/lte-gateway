@@ -17,12 +17,9 @@ config BOARD_NRF52840_GPIO_RESET
           until all bytes traveling to the nRF52 device have been received
           and drained, thus ensuring communication can begin correctly.
 
-if BOARD_NRF52840_GPIO_RESET
-
 config BOARD_NRF52840_GPIO_RESET_PIN
         int "Reset pin"
         default 13
+        depends on BOARD_NRF52840_GPIO_RESET
         help
           GPIO pin on the nRF9160 used to reset the nRF52840.
-
-endif
