@@ -166,7 +166,8 @@
 };
 
 &uart0 {
-	current-speed = <115200>;
+	compatible = "nordic,nrf-uarte";
+	current-speed = <1000000>;
 	status = "okay";
 	tx-pin = <18>;
 	rx-pin = <19>;
@@ -175,12 +176,13 @@
 };
 
 &uart1 {
+	compatible = "nordic,nrf-uarte";
 	current-speed = <1000000>;
 	status = "okay";
-	tx-pin = <22>;
-	rx-pin = <23>;
-	rts-pin = <24>;
-	cts-pin = <25>;
+	tx-pin = <23>;
+	rx-pin = <22>;
+	rts-pin = <25>;
+	cts-pin = <24>;
 };
 
 &flash0 {

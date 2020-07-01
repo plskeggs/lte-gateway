@@ -150,8 +150,10 @@ static void attr_add(const struct bt_gatt_dm *dm,
 	// struct bt_gatt_service_val *bt_gatt_dm_attr_service_val(const struct bt_gatt_dm_attr *attr)
 	// struct bt_gatt_chrc *bt_gatt_dm_attr_chrc_val(const struct bt_gatt_dm_attr *attr)
 
-	const struct bt_gatt_service_val *gatt_service = attr->user_data;
-	const struct bt_gatt_chrc *gatt_chrc = attr->user_data;
+	const struct bt_gatt_service_val *gatt_service =
+		bt_gatt_dm_attr_service_val(attr);
+	const struct bt_gatt_chrc *gatt_chrc =
+		bt_gatt_dm_attr_chrc_val(attr);
 
         bt_uuid_get_str(attr->uuid, str, sizeof(str));
 

@@ -8,7 +8,7 @@ manifest:
     - name: sdk-nrf
       path: nrf
       remote: nrfcloud
-      revision: 512e7b96e0de5c8cd79142d116593e5071eae005
+      revision: 389568e7e09a399f40e34fb7fa47ee1bd733c924
       import: true
   self:
     path: lte-gateway
