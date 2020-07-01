@@ -824,6 +824,7 @@ void main(void)
 	     UART0_TX, UART0_RX, UART0_RTS, UART0_CTS, UART0_SPEED);
 	LOG_INF("UART1 tx:%d, rx:%d, rts:%d, cts:%d, speed:%d",
 	     UART1_TX, UART1_RX, UART1_RTS, UART1_CTS, UART1_SPEED);
+	k_sleep(K_MSEC(50));
 
 	struct device *uart_0_dev = device_get_binding("UART_0");
 
@@ -832,6 +833,7 @@ void main(void)
 	uart_config_get(uart_0_dev, &config);
 	LOG_INF("UART0 speed:%u, flow:%d", config.baudrate,
 		config.flow_ctrl);
+	k_sleep(K_MSEC(50));
 
 	struct device *uart_1_dev = device_get_binding("UART_1");
 
@@ -842,6 +844,7 @@ void main(void)
 	LOG_INF("Reset pin:%d",
 		CONFIG_BOARD_NRF52840_GPIO_RESET_PIN);
 
+	k_sleep(K_SECONDS(1));
 	ble_init();
 
 	k_work_q_start(&application_work_q, application_stack_area,

@@ -11,10 +11,6 @@ set(BOARD_ROOT ${CMAKE_CURRENT_LIST_DIR})
 set(spm_CONF_FILE
     ${CMAKE_CURRENT_SOURCE_DIR}/child_secure_partition_manager.conf)
 
-#set(PM_STATIC_YML_FILE
-#  ${CMAKE_CURRENT_SOURCE_DIR}/configuration/${BOARD}/pm_static.yml
-#  )
-
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(lte-ble-gateway)
 zephyr_compile_definitions(PROJECT_NAME=${PROJECT_NAME})
