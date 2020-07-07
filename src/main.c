@@ -635,7 +635,9 @@ void cloud_event_handler(const struct cloud_backend *const backend,
 #if defined(CONFIG_LTE_LINK_CONTROL)
 		lte_lc_power_off();
 #endif
+#if defined(CONFIG_REBOOT)
 		sys_reboot(SYS_REBOOT_COLD);
+#endif
 		break;
 	default:
 		LOG_WRN("Unknown cloud event type: %d", evt->type);
@@ -785,17 +787,23 @@ void handle_bsdlib_init_ret(void)
 	switch (ret) {
 	case MODEM_DFU_RESULT_OK:
 		LOG_INF("MODEM UPDATE OK. Will run new firmware");
+#if defined(CONFIG_REBOOT)
 		sys_reboot(SYS_REBOOT_COLD);
+#endif
 		break;
 	case MODEM_DFU_RESULT_UUID_ERROR:
 	case MODEM_DFU_RESULT_AUTH_ERROR:
 		LOG_ERR("MODEM UPDATE ERROR %d. Will run old firmware", ret);
+#if defined(CONFIG_REBOOT)
 		sys_reboot(SYS_REBOOT_COLD);
+#endif
 		break;
 	case MODEM_DFU_RESULT_HARDWARE_ERROR:
 	case MODEM_DFU_RESULT_INTERNAL_ERROR:
 		LOG_ERR("MODEM UPDATE FATAL ERROR %d. Modem failiure", ret);
+#if defined(CONFIG_REBOOT)
 		sys_reboot(SYS_REBOOT_COLD);
+#endif
 		break;
 	default:
 		break;
@@ -844,6 +852,10 @@ void main(void)
 	LOG_INF("Reset pin:%d",
 		CONFIG_BOARD_NRF52840_GPIO_RESET_PIN);
 
+#if defined(CONFIG_USE_UI_MODULE)
+	ui_init(NULL);
+#endif
+
 	k_sleep(K_SECONDS(1));
 	ble_init();
 
@@ -870,10 +882,6 @@ void main(void)
 				CONFIG_CLOUD_CONNECT_RETRY_DELAY);
 		k_sleep(K_SECONDS(CONFIG_CLOUD_CONNECT_RETRY_DELAY));
 	}
-
-#if defined(CONFIG_USE_UI_MODULE)
-	ui_init(NULL);
-#endif
 
 #if defined(CONFIG_LWM2M_CARRIER)
 	LOG_INF("Waiting for LWM2M carrier to complete initialization...");
