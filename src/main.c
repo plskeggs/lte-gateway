@@ -827,6 +827,11 @@ void handle_bsdlib_init_ret(void)
 
 void main(void)
 {
+	struct uart_config config;
+	struct device *uart_0_dev = device_get_binding("UART_0");
+	struct device *uart_1_dev = device_get_binding("UART_1");
+
+#if 0
 	LOG_INF("Gateway started");
 	LOG_INF("UART0 tx:%d, rx:%d, rts:%d, cts:%d, speed:%d",
 	     UART0_TX, UART0_RX, UART0_RTS, UART0_CTS, UART0_SPEED);
@@ -834,16 +839,10 @@ void main(void)
 	     UART1_TX, UART1_RX, UART1_RTS, UART1_CTS, UART1_SPEED);
 	k_sleep(K_MSEC(50));
 
-	struct device *uart_0_dev = device_get_binding("UART_0");
-
-	struct uart_config config;
-
 	uart_config_get(uart_0_dev, &config);
 	LOG_INF("UART0 speed:%u, flow:%d", config.baudrate,
 		config.flow_ctrl);
 	k_sleep(K_MSEC(50));
-
-	struct device *uart_1_dev = device_get_binding("UART_1");
 
 	uart_config_get(uart_1_dev, &config);
 	LOG_INF("UART1 speed:%u, flow:%d", config.baudrate,
@@ -851,12 +850,12 @@ void main(void)
 
 	LOG_INF("Reset pin:%d",
 		CONFIG_BOARD_NRF52840_GPIO_RESET_PIN);
+#endif
 
 #if defined(CONFIG_USE_UI_MODULE)
 	ui_init(NULL);
 #endif
 
-	k_sleep(K_SECONDS(1));
 	ble_init();
 
 	k_work_q_start(&application_work_q, application_stack_area,
