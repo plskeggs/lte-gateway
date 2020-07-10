@@ -167,7 +167,7 @@
 
 &uart0 {
 	compatible = "nordic,nrf-uarte";
-	current-speed = <1000000>;
+	current-speed = <115200>;
 	status = "okay";
 	tx-pin = <18>;
 	rx-pin = <19>;
