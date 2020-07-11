@@ -21,7 +21,7 @@
 #include "nrf_cloud_transport.h"
 #include "ble_conn_mgr.h"
 
-#define SEND_NOTIFY_STACK_SIZE 4096 // 2048
+#define SEND_NOTIFY_STACK_SIZE 2048
 #define SEND_NOTIFY_PRIORITY 9
 
 #define SUBSCRIPTION_LIMIT 4
