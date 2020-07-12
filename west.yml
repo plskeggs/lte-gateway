@@ -4,12 +4,13 @@ manifest:
       url-base: https://github.com/nRFCloud
     - name: nordic
       url-base: https://github.com/nrfconnect
+    - name: origin
+      url-base: https://github.com/plskeggs
   projects:
     - name: sdk-nrf
       path: nrf
-      remote: nrfcloud
-      revision: 389568e7e09a399f40e34fb7fa47ee1bd733c924
+      remote: origin
+      revision: feature-debug-gateway
       import: true
   self:
     path: lte-gateway
-
