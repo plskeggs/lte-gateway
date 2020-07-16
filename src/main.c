@@ -827,12 +827,11 @@ void handle_bsdlib_init_ret(void)
 
 void main(void)
 {
+#if 0
 	struct uart_config config;
 	struct device *uart_0_dev = device_get_binding("UART_0");
 	struct device *uart_1_dev = device_get_binding("UART_1");
 
-#if 0
-	LOG_INF("Gateway started");
 	LOG_INF("UART0 tx:%d, rx:%d, rts:%d, cts:%d, speed:%d",
 	     UART0_TX, UART0_RX, UART0_RTS, UART0_CTS, UART0_SPEED);
 	LOG_INF("UART1 tx:%d, rx:%d, rts:%d, cts:%d, speed:%d",
