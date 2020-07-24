@@ -10,7 +10,7 @@
 #include <string.h>
 #include <device.h>
 #include <drivers/uart.h>
-#include <drivers/gps.h>
+//#include <drivers/gps.h>
 #include <drivers/sensor.h>
 #include <console/console.h>
 #include <power/reboot.h>
@@ -24,9 +24,10 @@
 #include <net/cloud.h>
 #include <net/socket.h>
 #include <net/nrf_cloud.h>
-#if defined(CONFIG_NRF_CLOUD_AGPS)
-#include <net/nrf_cloud_agps.h>
-#endif
+//#if defined(CONFIG_NRF_CLOUD_AGPS)
+//#include <net/nrf_cloud_agps.h>
+//#endif
+#include <fw_info.h>
 
 #if defined(CONFIG_LWM2M_CARRIER)
 #include <lwm2m_carrier.h>
@@ -850,6 +851,17 @@ void main(void)
 	LOG_INF("Reset pin:%d",
 		CONFIG_BOARD_NRF52840_GPIO_RESET_PIN);
 #endif
+
+	fw_info *info = fw_info_find(0);
+
+	LOG_INF("*******************************");
+	LOG_INF("Apricity Gateway Starting Up...");
+	if (info) {
+		LOG_INF("Ver:%u, Size:%u, Start:0x%08u, Boot:0x%08u, Valid:%u",
+			info->version, info->size, info->address,
+			info->boot_address, info->valid);
+	}
+	LOG_INF("*******************************");
 
 #if defined(CONFIG_USE_UI_MODULE)
 	ui_init(NULL);
