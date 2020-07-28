@@ -144,6 +144,10 @@ static K_SEM_DEFINE(lte_connected, 0, 1);
 static K_SEM_DEFINE(cloud_ready_to_connect, 0, 1);
 #endif
 
+#ifdef CONFIG_MODEM_INFO
+	static struct modem_param_info modem_param;
+#endif
+
 enum error_type {
 	ERROR_CLOUD,
 	ERROR_BSD_RECOVERABLE,
@@ -646,6 +650,43 @@ void cloud_event_handler(const struct cloud_backend *const backend,
 	}
 }
 
+void log_fw_info(void)
+{
+	/* TODO: debug this */
+	/* this does not work: fw_info *info = fw_info_find(0); */
+	extern struct fw_info m_firmware_info;
+	struct fw_info *info = &m_firmware_info;
+
+	if (info) {
+		LOG_INF("Ver:%u, Size:%u, Start:0x%08u, Boot:0x%08u, Valid:%u",
+			info->version, info->size, info->address,
+			info->boot_address, info->valid);
+	}
+}
+
+void log_modem_info(void)
+{
+#ifdef CONFIG_MODEM_INFO
+	modem_info_init();
+	modem_info_params_init(&modem_param);
+
+	int ret = modem_info_params_get(&modem_param);
+
+	if (ret) {
+		LOG_ERR("Error getting modem info: %d", ret);
+	} else {
+		if (modem_param.device.modem_fw.type == MODEM_INFO_FW_VERSION) {
+			LOG_INF("Modem fw version: %s",
+				modem_param.device.modem_fw.value_string);
+		} else {
+			LOG_INF("Modem fw type %u val %u",
+				modem_param.device.modem_fw.type,
+				modem_param.device.modem_fw.value);
+		}
+	}
+#endif
+}
+
 void connection_evt_handler(const struct cloud_event *const evt)
 {
 	if (evt->type == CLOUD_EVT_CONNECTING) {
@@ -658,6 +699,7 @@ void connection_evt_handler(const struct cloud_event *const evt)
 		}
 		return;
 	} else if (evt->type == CLOUD_EVT_CONNECTED) {
+		log_modem_info();
 		LOG_INF("CLOUD_EVT_CONNECTED");
 		k_delayed_work_cancel(&cloud_reboot_work);
 		k_sem_take(&cloud_disconnected, K_NO_WAIT);
@@ -852,15 +894,9 @@ void main(void)
 		CONFIG_BOARD_NRF52840_GPIO_RESET_PIN);
 #endif
 
-	fw_info *info = fw_info_find(0);
-
 	LOG_INF("*******************************");
 	LOG_INF("Apricity Gateway Starting Up...");
-	if (info) {
-		LOG_INF("Ver:%u, Size:%u, Start:0x%08u, Boot:0x%08u, Valid:%u",
-			info->version, info->size, info->address,
-			info->boot_address, info->valid);
-	}
+	log_fw_info();
 	LOG_INF("*******************************");
 
 #if defined(CONFIG_USE_UI_MODULE)
