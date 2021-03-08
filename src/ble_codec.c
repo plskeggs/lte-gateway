@@ -866,7 +866,7 @@ static int ccc_attr_encode(char *uuid, char *path,
 	}
 	uint8_t val = sub_enabled ? BT_GATT_CCC_NOTIFY : 0;
 
-	LOG_INF("value: %u", val);
+	LOG_DBG("value: %u", val);
 	CJADDSTRCS(descriptor, "uuid", uuid);
 	CJADDARRNUM(value_arr, val);
 	CJADDARRNUM(value_arr, 0);
@@ -908,7 +908,7 @@ static int attr_encode(struct uuid_handle_pair *uuid_handle,
 				       ble_conn_ptr, msg);
 
 	} else if (uuid_handle->attr_type == BT_ATTR_CCC) {
-		LOG_INF("Encoding CCC : UUID: %s  PATH: %s",
+		LOG_DBG("Encoding CCC : UUID: %s  PATH: %s",
 			log_strdup(uuid_str), log_strdup(path));
 		ret = ccc_attr_encode(uuid_str, path, ble_conn_ptr, msg,
 				      other_handle ?

@@ -962,7 +962,7 @@ static struct bt_gatt_dm_cb discovery_cb = {
 	.error_found = discovery_error_found,
 };
 
-uint8_t ble_discover(char *ble_addr)
+int ble_discover(char *ble_addr)
 {
 	int err;
 	struct bt_conn *conn;
@@ -981,7 +981,7 @@ uint8_t ble_discover(char *ble_addr)
 		conn = bt_conn_lookup_addr_le(BT_ID_DEFAULT, &addr);
 		if (conn == NULL) {
 			LOG_DBG("Null Conn object (err %d)", err);
-			return 1;
+			return -EINVAL;
 		}
 
 		ble_conn_mgr_get_conn_by_addr(ble_addr, &connection_ptr);
@@ -1008,7 +1008,7 @@ uint8_t ble_discover(char *ble_addr)
 				bt_conn_disconnect(conn, 0x16);
 
 				bt_conn_unref(conn);
-				ble_conn_set_disconnected(ble_addr);
+				ble_conn_set_connected(ble_addr, false);
 				return err;
 			}
 			discover_in_progress = true;
@@ -1017,7 +1017,7 @@ uint8_t ble_discover(char *ble_addr)
 			connection_ptr->encode_discovered = true;
 		}
 	} else {
-		return 1;
+		return -EBUSY;
 	}
 
 	bt_conn_unref(conn);
@@ -1025,7 +1025,7 @@ uint8_t ble_discover(char *ble_addr)
 }
 
 
-uint8_t disconnect_device_by_addr(char *ble_addr)
+int disconnect_device_by_addr(char *ble_addr)
 {
 	int err;
 	struct bt_conn *conn;
@@ -1040,14 +1040,20 @@ uint8_t disconnect_device_by_addr(char *ble_addr)
 	conn = bt_conn_lookup_addr_le(BT_ID_DEFAULT, &addr);
 	if (conn == NULL) {
 		LOG_DBG("Null Conn object (err %d)", err);
-		return 1;
+		return -EINVAL;
 	}
 
 	/* cloud commanded this, so remove any notifications or indications */
-	ble_subscribe_device(conn, false);
+	err = ble_subscribe_device(conn, false);
+	if (err) {
+		LOG_ERR("Error unsubscribing device");
+	}
 
 	/* Disconnect device. */
-	bt_conn_disconnect(conn, BT_HCI_ERR_LOCALHOST_TERM_CONN);
+	err = bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+	if (err) {
+		LOG_ERR("Error disconnecting: %d", err);
+	}
 	bt_conn_unref(conn);
 
 	return err;
@@ -1145,7 +1151,11 @@ static void connected(struct bt_conn *conn, uint8_t conn_err)
 	} else {
 		LOG_INF("Reconnected: %s", log_strdup(addr));
 	}
-	ble_remove_from_allowlist(addr_trunc);
+	if (connection_ptr->added_to_allowlist) {
+		if (!ble_remove_from_allowlist(addr_trunc)) {
+			connection_ptr->added_to_allowlist = false;
+		}
+	}
 
 	ui_led_set_pattern(UI_BLE_CONNECTED, PWM_DEV_1);
 
@@ -1177,15 +1187,17 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 	 */
 	if (reason != BT_HCI_ERR_REMOTE_USER_TERM_CONN) {
 		(void)update_shadow(addr_trunc, false, false);
-		ble_conn_set_disconnected(addr_trunc);
 		LOG_INF("Disconnected: %s (reason 0x%02x)", log_strdup(addr),
 			reason);
+		ble_conn_set_connected(addr_trunc, false);
 	} else {
 		LOG_INF("Disconnected: temporary");
 	}
 
-	if (!connection_ptr->free) {
-		ble_add_to_allowlist(connection_ptr->addr);
+	if (!connection_ptr->free && !connection_ptr->added_to_allowlist) {
+		if (!ble_add_to_allowlist(connection_ptr->addr)) {
+			connection_ptr->added_to_allowlist = true;
+		}
 	}
 
 	ui_led_set_pattern(UI_BLE_DISCONNECTED, PWM_DEV_1);
@@ -1340,7 +1352,7 @@ void scan_timer_handler(struct k_timer *timer)
 
 K_TIMER_DEFINE(scan_timer, scan_timer_handler, NULL);
 
-void ble_add_to_allowlist(char *addr_str)
+int ble_add_to_allowlist(char *addr_str)
 {
 	int err;
 	bt_addr_le_t addr;
@@ -1350,18 +1362,24 @@ void ble_add_to_allowlist(char *addr_str)
 	err = bt_addr_le_from_str(addr_str, "random", &addr);
 	if (err) {
 		LOG_ERR("Invalid peer address (err %d)", err);
-		return;
+		goto done;
 	}
 
 	bt_conn_create_auto_stop();
 
-	bt_le_whitelist_add(&addr);
+	err = bt_le_whitelist_add(&addr);
+	if (err) {
+		LOG_ERR("Error adding to allowlist: %d", err);
+	}
 
+done:
 	/* Start the timer to begin scanning again. */
 	k_timer_start(&auto_conn_start_timer, K_SECONDS(3), K_SECONDS(0));
+
+	return err;
 }
 
-void ble_remove_from_allowlist(char *addr_str)
+int ble_remove_from_allowlist(char *addr_str)
 {
 	int err;
 	bt_addr_le_t addr;
@@ -1371,15 +1389,21 @@ void ble_remove_from_allowlist(char *addr_str)
 	err = bt_addr_le_from_str(addr_str, "random", &addr);
 	if (err) {
 		LOG_ERR("Invalid peer address (err %d)", err);
-		return;
+		goto done;
 	}
 
 	bt_conn_create_auto_stop();
 
-	bt_le_whitelist_rem(&addr);
+	err = bt_le_whitelist_rem(&addr);
+	if (err) {
+		LOG_ERR("Error removing from allowlist: %d", err);
+	}
 
+done:
 	/* Start the timer to begin scanning again. */
 	k_timer_start(&auto_conn_start_timer, K_SECONDS(3), K_SECONDS(0));
+
+	return err;
 }
 
 void ble_stop_activity(void)
