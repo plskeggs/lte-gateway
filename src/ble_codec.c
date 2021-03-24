@@ -619,6 +619,7 @@ int gateway_shadow_data_encode(char *buf, size_t len)
 	CJADDARRSTR(fota_arr, "APP");
 	CJADDARRSTR(fota_arr, "MODEM");
 	CJADDARRSTR(fota_arr, "BOOT");
+	CJADDARRSTR(fota_arr, "BLE");
 
 #if defined(CONFIG_NRF_CLOUD_FOTA)
 	CJADDREFCS(service_info, "fota_v2", fota_arr);
