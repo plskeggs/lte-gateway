@@ -60,6 +60,6 @@ struct ble_scanned_dev *get_scanned_device(unsigned int i);
 int get_num_scan_results(void);
 int get_num_scan_names(void);
 void ble_stop_activity(void);
-int setup_gw_shadow(void);
+int setup_gw_shadow(void *modem);
 
 #endif /* _BLE_H_ */

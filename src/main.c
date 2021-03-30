@@ -30,6 +30,7 @@
 #include <fw_info.h>
 #include <settings/settings.h>
 #include <debug/cpu_load.h>
+#include <date_time.h>
 
 #if defined(CONFIG_LWM2M_CARRIER)
 #include <lwm2m_carrier.h>
@@ -186,6 +187,7 @@ static void work_init(void);
 static void cycle_cloud_connection(struct k_work *work);
 static void connection_evt_handler(const struct cloud_event *const evt);
 static void no_sim_go_offline(struct k_work *work);
+static void date_time_event_handler(const struct date_time_evt *evt);
 
 bool get_lte_connection_status(void)
 {
@@ -689,7 +691,7 @@ void cloud_event_handler(const struct cloud_backend *const backend,
 	}
 }
 
-void query_modem_info(void)
+struct modem_param_info * query_modem_info(void)
 {
 #ifdef CONFIG_MODEM_INFO
 	modem_info_init();
@@ -699,7 +701,9 @@ void query_modem_info(void)
 
 	if (ret) {
 		LOG_ERR("Error getting modem info: %d", ret);
+		return NULL;
 	} else {
+#ifndef CONFIG_DATE_TIME
 		if (modem_param.network.date_time.value_string) {
 			char *str = modem_param.network.date_time.value_string;
 
@@ -739,9 +743,49 @@ void query_modem_info(void)
 		} else {
 			LOG_WRN("modem_info.network.date_time: empty");
 		}
+#endif
+		return &modem_param;
 	}
 #endif
 }
+
+#ifdef CONFIG_DATE_TIME
+static void date_time_event_handler(const struct date_time_evt *evt)
+{
+	switch (evt->type) {
+	case DATE_TIME_OBTAINED_MODEM:
+		LOG_INF("DATE_TIME_OBTAINED_MODEM");
+		break;
+	case DATE_TIME_OBTAINED_NTP:
+		LOG_INF("DATE_TIME_OBTAINED_NTP");
+		break;
+	case DATE_TIME_OBTAINED_EXT:
+		LOG_INF("DATE_TIME_OBTAINED_EXT");
+		break;
+	case DATE_TIME_NOT_OBTAINED:
+		LOG_INF("DATE_TIME_NOT_OBTAINED");
+		return;
+	default:
+		return;
+	}
+
+	int64_t unix_time_ms;
+
+	if (!date_time_now(&unix_time_ms)) {
+		time_t unix_time;
+		struct tm *time;
+
+		unix_time = unix_time_ms / MSEC_PER_SEC;
+		time = gmtime(&unix_time);
+		if (time) {
+			LOG_INF("Current UTC: %s",
+				log_strdup(asctime(time)));
+		} else {
+			LOG_WRN("Time not valid");
+		}
+	}
+}
+#endif
 
 void control_cloud_connection(bool enable)
 {
@@ -750,6 +794,9 @@ void control_cloud_connection(bool enable)
 
 void connection_evt_handler(const struct cloud_event *const evt)
 {
+	struct modem_param_info *modem;
+
+	LOG_INF("*******************************");
 	if (evt->type == CLOUD_EVT_CONNECTING) {
 		cloud_connection_status = false;
 		LOG_INF("CLOUD_EVT_CONNECTING");
@@ -761,10 +808,11 @@ void connection_evt_handler(const struct cloud_event *const evt)
 		}
 		return;
 	} else if (evt->type == CLOUD_EVT_CONNECTED) {
+#ifdef CONFIG_DATE_TIME
+		date_time_update_async(date_time_event_handler);
+#endif
 		cloud_connection_status = true;
-		LOG_INF("*******************************");
-		query_modem_info();
-		LOG_INF("*******************************");
+		modem = query_modem_info();
 		LOG_INF("CLOUD_EVT_CONNECTED");
 		k_delayed_work_cancel(&cloud_reboot_work);
 		k_sem_take(&cloud_disconnected, K_NO_WAIT);
@@ -772,7 +820,7 @@ void connection_evt_handler(const struct cloud_event *const evt)
 
 		LOG_INF("Persistent Sessions = %u",
 			evt->data.persistent_session);
-		setup_gw_shadow();
+		setup_gw_shadow(modem);
 
 	} else if (evt->type == CLOUD_EVT_DISCONNECTED) {
 		int32_t connect_wait_s = CONFIG_CLOUD_CONNECT_RETRY_DELAY;

@@ -7,12 +7,16 @@
 #include <posix/time.h>
 #include <bluetooth/uuid.h>
 #include <bluetooth/gatt.h>
+#if defined(CONFIG_NRF_MODEM_LIB)
+#include <modem/modem_info.h>
+#endif /* CONFIG_NRF_MODEM_LIB */
 
 #include "cJSON.h"
 #include "cJSON_os.h"
 #include "ble_codec.h"
 #include "ble_conn_mgr.h"
 #include "ble.h"
+#include "service_info.h"
 #include "nrf_cloud_codec.h"
 #include "nrf_cloud_mem.h"
 #include "nrf_cloud_transport.h"
@@ -599,6 +603,82 @@ cleanup:
 	return ret;
 }
 
+int gateway_shadow_data_encode(void *modem_ptr,
+			       char *buf, size_t len)
+{
+	struct modem_param_info *modem;
+	int ret = -ENOMEM;
+	cJSON *root_obj = cJSON_CreateObject();
+	cJSON *state_obj = cJSON_CreateObject();
+	cJSON *reported_obj = cJSON_CreateObject();
+	cJSON *device_obj = cJSON_CreateObject();
+
+	if ((root_obj == NULL) || (state_obj == NULL) ||
+	    (reported_obj == NULL) || (device_obj == NULL)) {
+		LOG_ERR("Error creating shadow data");
+		goto cleanup;
+	}
+
+	const char *const ui[] = {
+#if IS_ENABLED(CONFIG_MODEM_INFO)
+		"RSRP",
+#endif
+	};
+
+	const char *const fota[] = {
+		"APP",
+		"MODEM",
+		"BOOT",
+		"BLE"
+	};
+
+	size_t item_cnt = 0;
+
+#ifdef CONFIG_MODEM_INFO
+	modem = (struct modem_param_info *)modem_ptr;
+	if (modem == NULL) {
+		LOG_ERR("Unable to obtain modem parameters");
+	} else {
+		int val;
+
+		val = modem_info_json_object_encode(modem, device_obj);
+		if (val > 0) {
+			item_cnt = (size_t)val;
+		}
+		ret = 0;
+	}
+#endif
+
+	if (service_info_json_object_encode(ui, ARRAY_SIZE(ui),
+					    fota, ARRAY_SIZE(fota),
+					    2,
+					    device_obj) == 0) {
+		++item_cnt;
+	}
+
+	if (!item_cnt) {
+		ret = -ECHILD;
+		goto cleanup;
+	}
+
+	CJADDREFCS(reported_obj, "device", device_obj);
+	CJADDREFCS(state_obj, "reported", reported_obj);
+	CJADDREFCS(root_obj, "state", state_obj);
+
+	CJPRINT(root_obj, buf, len, 0);
+
+cleanup:
+	if (ret) {
+		LOG_ERR("In shadow cleanup: %d", ret);
+	}
+	cJSON_Delete(device_obj);
+	cJSON_Delete(reported_obj);
+	cJSON_Delete(state_obj);
+	cJSON_Delete(root_obj);
+	return ret;
+}
+
+#if 0
 int gateway_shadow_data_encode(char *buf, size_t len)
 {
 	int ret = -ENOMEM;
@@ -619,7 +699,7 @@ int gateway_shadow_data_encode(char *buf, size_t len)
 	CJADDARRSTR(fota_arr, "APP");
 	CJADDARRSTR(fota_arr, "MODEM");
 	CJADDARRSTR(fota_arr, "BOOT");
-	CJADDARRSTR(fota_arr, "BLE");
+	/* CJADDARRSTR(fota_arr, "BLE"); */
 
 #if defined(CONFIG_NRF_CLOUD_FOTA)
 	CJADDREFCS(service_info, "fota_v2", fota_arr);
@@ -647,6 +727,7 @@ cleanup:
 	cJSON_Delete(root_obj);
 	return ret;
 }
+#endif
 
 int device_shadow_data_encode(char *ble_address, bool connecting,
 			      bool connected, struct ble_msg *msg)

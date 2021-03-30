@@ -1059,12 +1059,12 @@ int disconnect_device_by_addr(char *ble_addr)
 	return err;
 }
 
-int setup_gw_shadow(void)
+int setup_gw_shadow(void *modem)
 {
 	int err;
 
 	k_mutex_lock(&output.lock, K_FOREVER);
-	err = gateway_shadow_data_encode(output.buf, output.len);
+	err = gateway_shadow_data_encode(modem, output.buf, output.len);
 	if (!err) {
 		shadow_publish(output.buf);
 	}
