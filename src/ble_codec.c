@@ -621,7 +621,7 @@ int gateway_shadow_data_encode(void *modem_ptr,
 
 	const char *const ui[] = {
 #if IS_ENABLED(CONFIG_MODEM_INFO)
-		"RSRP",
+		/* not yet plumbed to report this: "RSRP",*/
 #endif
 	};
 
@@ -677,57 +677,6 @@ cleanup:
 	cJSON_Delete(root_obj);
 	return ret;
 }
-
-#if 0
-int gateway_shadow_data_encode(char *buf, size_t len)
-{
-	int ret = -ENOMEM;
-	cJSON *root_obj = cJSON_CreateObject();
-	cJSON *state_obj = cJSON_CreateObject();
-	cJSON *reported_obj = cJSON_CreateObject();
-	cJSON *gateway_device = cJSON_CreateObject();
-	cJSON *service_info = cJSON_CreateObject();
-	cJSON *fota_arr = cJSON_CreateArray();
-
-	if ((root_obj == NULL) || (state_obj == NULL) ||
-	    (reported_obj == NULL) || (gateway_device == NULL) ||
-	    (service_info == NULL) || (fota_arr == NULL)) {
-		LOG_ERR("Error creating shadow data");
-		goto cleanup;
-	}
-
-	CJADDARRSTR(fota_arr, "APP");
-	CJADDARRSTR(fota_arr, "MODEM");
-	CJADDARRSTR(fota_arr, "BOOT");
-	/* CJADDARRSTR(fota_arr, "BLE"); */
-
-#if defined(CONFIG_NRF_CLOUD_FOTA)
-	CJADDREFCS(service_info, "fota_v2", fota_arr);
-	CJADDNULLCS(service_info, "fota_v1");
-#else
-	CJADDREFCS(service_info, "fota_v1", fota_arr);
-#endif
-	CJADDREFCS(gateway_device, "serviceInfo", service_info);
-	CJADDREFCS(reported_obj, "device", gateway_device);
-	CJADDREFCS(state_obj, "reported", reported_obj);
-	CJADDREFCS(root_obj, "state", state_obj);
-
-	CJPRINT(root_obj, buf, len, 0);
-	ret = 0;
-
-cleanup:
-	if (ret) {
-		LOG_ERR("In shadow cleanup: %d", ret);
-	}
-	cJSON_Delete(fota_arr);
-	cJSON_Delete(service_info);
-	cJSON_Delete(gateway_device);
-	cJSON_Delete(reported_obj);
-	cJSON_Delete(state_obj);
-	cJSON_Delete(root_obj);
-	return ret;
-}
-#endif
 
 int device_shadow_data_encode(char *ble_address, bool connecting,
 			      bool connected, struct ble_msg *msg)
