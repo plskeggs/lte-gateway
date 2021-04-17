@@ -22,13 +22,13 @@
 		printk(fmt "\n", ##__VA_ARGS__); \
 	} while (false)
 
-#define LOGPKINF(...)   do {    				     \
-				if (use_printk) {       	     \
+#define LOGPKINF(...)	do {					     \
+				if (use_printk) {		     \
 					CALL_TO_PRINTK(__VA_ARGS__); \
 				} else {			     \
 					LOG_INF(__VA_ARGS__);        \
-				}       			     \
-			} while (false)
+				}				     \
+		      } while (false)
 
 #define STRDUP(x) use_printk ? (x) : log_strdup(x)
 
@@ -440,6 +440,13 @@ static void fota_ble_callback(const struct nrf_cloud_fota_ble_job *
 	fota_ble_job.info.host = strdup(ble_job->info.host);
 	fota_ble_job.info.path = strdup(ble_job->info.path);
 	fota_ble_job.info.file_size = ble_job->info.file_size;
+	if (ble_job->info.path2) {
+		fota_ble_job.info.path2 = strdup(ble_job->info.path2);
+		fota_ble_job.info.file_size2 = ble_job->info.file_size2;
+	} else {
+		fota_ble_job.info.path2 = NULL;
+		fota_ble_job.info.file_size2 = 0;
+	}
 	fota_ble_job.error = NRF_CLOUD_FOTA_ERROR_NONE;
 
 	LOG_INF("starting BLE DFU to addr:%s, from host:%s, "
@@ -449,6 +456,49 @@ static void fota_ble_callback(const struct nrf_cloud_fota_ble_job *
 		log_strdup(ble_job->info.path), ble_job->info.file_size,
 		init_packet, ver, crc, sec_tag,
 		apn ? apn : "<n/a>", frag);
+	if (fota_ble_job.info.path2) {
+		LOG_INF("second DFU path: %s, size:%d",
+			log_strdup(ble_job->info.path2),
+			ble_job->info.file_size2);
+	}
+
+	(void)start_ble_job(&fota_ble_job);
+}
+
+static bool start_second_job(void)
+{
+	char addr[BT_ADDR_LE_STR_LEN];
+
+	bt_addr_to_str(&fota_ble_job.ble_id, addr, sizeof(addr));
+
+	if (!ble_conn_mgr_is_addr_connected(addr)) {
+		/* TODO: add ability to queue? */
+		LOG_WRN("Device not connected; ignoring job");
+		return false;
+	}
+
+	if (!fota_ble_job.info.path2) {
+		LOG_ERR("No second job to start!");
+		return false;
+	}
+
+	/* rotate jobs */
+	free(fota_ble_job.info.path);
+	fota_ble_job.info.path = fota_ble_job.info.path2;
+	fota_ble_job.info.path2 = NULL;
+	fota_ble_job.info.file_size = fota_ble_job.info.file_size2;
+	fota_ble_job.info.file_size2 = 0;
+	fota_ble_job.error = NRF_CLOUD_FOTA_ERROR_NONE;
+
+	/* update globals */
+	init_packet = strstr(fota_ble_job.info.path, "dat") != NULL;
+	image_size = fota_ble_job.info.file_size;
+
+	LOG_INF("starting second BLE DFU to addr:%s, from host:%s, "
+		"path:%s, size:%d, init:%d",
+		log_strdup(addr), log_strdup(fota_ble_job.info.host),
+		log_strdup(fota_ble_job.info.path), fota_ble_job.info.file_size,
+		init_packet);
 
 	(void)start_ble_job(&fota_ble_job);
 }
@@ -459,6 +509,9 @@ static void free_job(void)
 		free(fota_ble_job.info.id);
 		free(fota_ble_job.info.host);
 		free(fota_ble_job.info.path);
+		if (fota_ble_job.info.path2) {
+			free(fota_ble_job.info.path2);
+		}
 		memset(&fota_ble_job, 0, sizeof(fota_ble_job));
 	}
 }
