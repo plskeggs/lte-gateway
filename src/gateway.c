@@ -38,7 +38,7 @@ LOG_MODULE_REGISTER(gateway, CONFIG_NRF_CLOUD_GATEWAY_LOG_LEVEL);
 #define QUEUE_CHAR_READS
 
 #define GET_PSK_ID "AT%CMNG=2,16842753,4"
-#define GET_PSK_ID_LEN (sizeof(GET_PSK_ID)-1)
+#define GET_PSK_ID_LEN (sizeof(GET_PSK_ID) - 1)
 #define GET_PSK_ID_ERR "ERROR"
 
 /* Uncomment below to enable writing characteristics from cloud_data_process()
@@ -51,7 +51,7 @@ LOG_MODULE_REGISTER(gateway, CONFIG_NRF_CLOUD_GATEWAY_LOG_LEVEL);
 #define VALUE_BUF_SIZE 256
 static uint8_t value_buf[VALUE_BUF_SIZE];
 
-char gateway_id[NRF_CLOUD_CLIENT_ID_LEN+1];
+char gateway_id[NRF_CLOUD_CLIENT_ID_LEN + 1];
 
 struct cloud_data_t {
 	void *fifo_reserved;
