@@ -566,6 +566,8 @@ int ble_conn_mgr_get_conn_by_addr(const char *addr, struct ble_device_conn **con
 			return 0;
 		}
 	}
+	*conn_ptr = NULL;
+	LOG_ERR("No Conn Found for addr %s", log_strdup(addr));
 	return -ENOENT;
 
 }

@@ -14,6 +14,7 @@
 #include <bluetooth/gatt_dm.h>
 #include <bluetooth/scan.h>
 #include <bluetooth/hci.h>
+#include <bluetooth/conn.h>
 #include <bluetooth/hci_err.h>
 #include <dk_buttons_and_leds.h>
 #include <settings/settings.h>
@@ -157,6 +158,36 @@ void bt_uuid_get_str(const struct bt_uuid *uuid, char *str, size_t len)
 	}
 }
 
+static void bt_addr_str(const bt_addr_le_t *le_addr, char *addr_trunc, size_t len)
+{
+	char addr[BT_ADDR_LE_STR_LEN];
+
+	if (len > BT_ADDR_LE_STR_LEN) {
+		len = BT_ADDR_LE_STR_LEN;
+	}
+	bt_addr_le_to_str(le_addr, addr, sizeof(addr));
+
+	memcpy(addr_trunc, addr, len);
+	addr_trunc[len - 1] = 0;
+
+	bt_to_upper(addr_trunc, len);
+}
+
+static void bt_conn_addr(struct bt_conn *conn, char *addr_trunc, size_t len)
+{
+	bt_addr_str(bt_conn_get_dst(conn), addr_trunc, len);
+}
+
+static struct ble_device_conn *bt_conn_addr_lookup(struct bt_conn *conn, 
+						   char *addr_trunc, size_t len)
+{
+	struct ble_device_conn *connected_ptr;
+
+	bt_conn_addr(conn, addr_trunc, len);
+	ble_conn_mgr_get_conn_by_addr(addr_trunc, &connected_ptr);
+	return connected_ptr;
+}
+
 static int svc_attr_data_add(const struct bt_gatt_service_val *gatt_service,
 			      uint16_t handle, struct ble_device_conn *ble_conn_ptr)
 {
@@ -217,26 +248,20 @@ int ble_dm_data_add(struct bt_gatt_dm *dm)
 {
 	const struct bt_gatt_dm_attr *attr = NULL;
 	char addr_trunc[BT_ADDR_STR_LEN];
-	char addr[BT_ADDR_LE_STR_LEN];
 	struct ble_device_conn *ble_conn_ptr;
 	struct bt_conn *conn_obj;
 	int err;
 
 	conn_obj = bt_gatt_dm_conn_get(dm);
 
-	bt_addr_le_to_str(bt_conn_get_dst(conn_obj), addr, sizeof(addr));
+	ble_conn_ptr = bt_conn_addr_lookup(conn_obj, addr_trunc, BT_ADDR_STR_LEN);
 
-	memcpy(addr_trunc, addr, BT_ADDR_LE_DEVICE_LEN);
-	addr_trunc[BT_ADDR_LE_DEVICE_LEN] = 0;
-
-	bt_to_upper(addr_trunc, BT_ADDR_LE_STR_LEN);
-
-	err = ble_conn_mgr_get_conn_by_addr(addr_trunc, &ble_conn_ptr);
-	if (err) {
-		LOG_ERR("Connection not found for addr %s", log_strdup(addr_trunc));
-		return err;
+	if (!conn_obj) {
+		LOG_ERR("No conn_obj");
 	}
-
+	if (!ble_conn_ptr) {
+		LOG_ERR("Connection not found for addr %s", log_strdup(addr_trunc));
+	}
 	discover_in_progress = true;
 
 	attr = bt_gatt_dm_service_get(dm);
@@ -405,26 +430,17 @@ static void discovery_completed(struct bt_gatt_dm *disc, void *ctx)
 /* Despite the name. This is what is called at the end of a discovery service.*/
 static void discovery_service_not_found(struct bt_conn *conn, void *ctx)
 {
-	LOG_DBG("Service not found!");
-
-	char addr[BT_ADDR_LE_STR_LEN];
 	char addr_trunc[BT_ADDR_STR_LEN];
 	struct ble_device_conn *connected_ptr;
-	int err;
 
-	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-	memcpy(addr_trunc, addr, BT_ADDR_LE_DEVICE_LEN);
-	addr_trunc[BT_ADDR_LE_DEVICE_LEN] = 0;
+	connected_ptr = bt_conn_addr_lookup(conn, addr_trunc, BT_ADDR_STR_LEN);
 
-	bt_to_upper(addr_trunc, BT_ADDR_LE_STR_LEN);
+	LOG_DBG("Service not found for %s!", log_strdup(addr_trunc));
 
-	err = ble_conn_mgr_get_conn_by_addr(addr_trunc, &connected_ptr);
-	if (err) {
-		LOG_ERR("Connection not found for addr %s", log_strdup(addr_trunc));
-	} else {
-		/* only set discovered true and send results if it seems we were
-		 * successful at doing a full discovery
-		 */
+	/* only set discovered true and send results if it seems we were
+	 * successful at doing a full discovery
+	 */
+	if (connected_ptr != NULL) {
 		if (connected_ptr->connected && connected_ptr->num_pairs) {
 			connected_ptr->encode_discovered = true;
 			connected_ptr->discovered = true;
@@ -432,6 +448,8 @@ static void discovery_service_not_found(struct bt_conn *conn, void *ctx)
 			LOG_WRN("Discovery not completed");
 		}
 		connected_ptr->discovering = false;
+	} else {
+		LOG_ERR("Connection not found for addr %s", log_strdup(addr_trunc));
 	}
 	discover_in_progress = false;
 
@@ -443,27 +461,19 @@ static void discovery_service_not_found(struct bt_conn *conn, void *ctx)
 
 static void discovery_error_found(struct bt_conn *conn, int err, void *ctx)
 {
-	LOG_ERR("The discovery procedure failed, err %d", err);
-
-	char addr[BT_ADDR_LE_STR_LEN];
 	char addr_trunc[BT_ADDR_STR_LEN];
 	struct ble_device_conn *connected_ptr;
 
-	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-	memcpy(addr_trunc, addr, BT_ADDR_LE_DEVICE_LEN);
-	addr_trunc[BT_ADDR_LE_DEVICE_LEN] = 0;
-
-	bt_to_upper(addr_trunc, BT_ADDR_LE_STR_LEN);
-
-	err = ble_conn_mgr_get_conn_by_addr(addr_trunc, &connected_ptr);
-	if (err) {
-		LOG_ERR("Connection not found for addr %s", log_strdup(addr_trunc));
-	} else {
+	connected_ptr = bt_conn_addr_lookup(conn, addr_trunc, BT_ADDR_STR_LEN);
+	if (connected_ptr != NULL) {
 		connected_ptr->num_pairs = 0;
 		connected_ptr->discovering = false;
 		connected_ptr->discovered = false;
 	}
 	discover_in_progress = false;
+
+	LOG_ERR("The discovery procedure failed for %s: err %d",
+		log_strdup(addr_trunc), err);
 
 	if (IS_ENABLED(CONFIG_SETTINGS)) {
 		LOG_INF("Saving settings");
@@ -483,19 +493,12 @@ static uint8_t gatt_read_callback(struct bt_conn *conn, uint8_t err,
 	struct bt_gatt_read_params *params,
 	const void *data, uint16_t length)
 {
-	char addr[BT_ADDR_LE_STR_LEN];
 	char addr_trunc[BT_ADDR_STR_LEN];
 	int ret = BT_GATT_ITER_CONTINUE;
 
 	if ((length > 0) && (data != NULL)) {
-		bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-
-		memcpy(addr_trunc, addr, BT_ADDR_LE_DEVICE_LEN);
-		addr_trunc[BT_ADDR_LE_DEVICE_LEN] = 0;
-
-		bt_to_upper(addr_trunc, BT_ADDR_LE_STR_LEN);
-
-		LOG_INF("Read Addr %s", log_strdup(addr_trunc));
+		bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
+		LOG_INF("Read %s", log_strdup(addr_trunc));
 
 		struct rec_data_t read_data = {
 			.fifo_reserved = NULL,
@@ -663,6 +666,7 @@ int gatt_write_without_response(char *ble_addr, char *chrc_uuid, uint8_t *data,
 
 	err = bt_gatt_write_without_response(conn, handle, data, data_len,
 					     false);
+	bt_conn_unref(conn);
 	return err;
 }
 
@@ -670,7 +674,6 @@ static uint8_t on_received(struct bt_conn *conn,
 	struct bt_gatt_subscribe_params *params,
 	const void *data, uint16_t length)
 {
-	char addr[BT_ADDR_LE_STR_LEN];
 	char addr_trunc[BT_ADDR_STR_LEN];
 	int ret = BT_GATT_ITER_CONTINUE;
 
@@ -680,12 +683,7 @@ static uint8_t on_received(struct bt_conn *conn,
 
 	if ((length > 0) && (data != NULL)) {
 
-		bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-
-		memcpy(addr_trunc, addr, BT_ADDR_LE_DEVICE_LEN);
-		addr_trunc[BT_ADDR_LE_DEVICE_LEN] = 0;
-
-		bt_to_upper(addr_trunc, BT_ADDR_LE_STR_LEN);
+		bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
 
 		struct rec_data_t tx_data = {
 			.read = false,
@@ -795,7 +793,7 @@ int ble_subscribe(char *ble_addr, char *chrc_uuid, uint8_t value_type)
 
 	err = ble_conn_mgr_generate_path(connected_ptr, handle, path, true);
 	if (err) {
-		return err;
+		goto end;
 	}
 
 	if (subscribed && (value_type == 0)) {
@@ -949,21 +947,17 @@ int ble_subscribe_device(struct bt_conn *conn, bool subscribe)
 	int i;
 	int count = 0;
 	struct ble_device_conn *connected_ptr;
-	char addr[BT_ADDR_LE_STR_LEN];
 	char addr_trunc[BT_ADDR_STR_LEN];
-	int err;
 
 	if (conn == NULL) {
 		return -EINVAL;
 	}
-	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-	memcpy(addr_trunc, addr, BT_ADDR_LE_DEVICE_LEN);
-	addr_trunc[BT_ADDR_LE_DEVICE_LEN] = 0;
-	bt_to_upper(addr_trunc, BT_ADDR_LE_STR_LEN);
 
-	err = ble_conn_mgr_get_conn_by_addr(addr_trunc, &connected_ptr);
-	if (err) {
-		LOG_ERR("Connection not found for addr %s", log_strdup(addr_trunc));
+	connected_ptr = bt_conn_addr_lookup(conn, addr_trunc, BT_ADDR_STR_LEN);
+
+	if (connected_ptr == NULL) {
+		LOG_ERR("Could not find ble_device_conn for %s",
+			log_strdup(addr_trunc));
 		return -EINVAL;
 	}
 
@@ -1004,11 +998,9 @@ static struct bt_gatt_dm_cb discovery_cb = {
 
 int ble_discover(struct ble_device_conn *connection_ptr)
 {
-	int err;
+	int err = 0;
 	char *ble_addr = connection_ptr->addr;
 	struct bt_conn *conn = NULL;
-
-	LOG_INF("Discovering: %s\n", log_strdup(ble_addr));
 
 	if (!discover_in_progress) {
 
@@ -1019,6 +1011,7 @@ int ble_discover(struct ble_device_conn *connection_ptr)
 		}
 
 		if (!connection_ptr->discovered) {
+			LOG_INF("Discovering: %s\n", log_strdup(ble_addr));
 			if (connection_ptr->num_pairs) {
 				LOG_INF("Marking device as discovered; "
 					"num pairs = %u",
@@ -1026,8 +1019,7 @@ int ble_discover(struct ble_device_conn *connection_ptr)
 				connection_ptr->discovering = false;
 				connection_ptr->discovered = true;
 				connection_ptr->encode_discovered = true;
-				bt_conn_unref(conn);
-				return 0;
+				goto end;
 			}
 			discover_in_progress = true;
 			connection_ptr->discovering = true;
@@ -1056,10 +1048,13 @@ int ble_discover(struct ble_device_conn *connection_ptr)
 			connection_ptr->encode_discovered = true;
 		}
 	} else {
-		return -EBUSY;
+		err = -EBUSY;
 	}
 
-	bt_conn_unref(conn);
+end:
+	if (conn) {
+		bt_conn_unref(conn);
+	}
 	return err;
 }
 
@@ -1176,7 +1171,8 @@ void auto_conn_start_work_handler(struct k_work *work)
 		LOG_WRN("Device not ready; try starting auto connect later");
 		k_timer_start(&auto_conn_start_timer, K_SECONDS(3), K_SECONDS(0));
 	} else if (err == -ENOMEM) {
-		LOG_ERR("Out of memory enabling auto connect");
+		LOG_ERR("No more connections available when enabling auto connect");
+		print_conns();
 	} else if (err) {
 		LOG_ERR("Error enabling auto connect: %d", err);
 	} else {
@@ -1195,31 +1191,21 @@ K_TIMER_DEFINE(auto_conn_start_timer, auto_conn_start_timer_handler, NULL);
 
 static void connected(struct bt_conn *conn, uint8_t conn_err)
 {
-	char addr[BT_ADDR_LE_STR_LEN];
 	char addr_trunc[BT_ADDR_STR_LEN];
 	struct ble_device_conn *connection_ptr;
-	int err;
 
-	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+	connection_ptr = bt_conn_addr_lookup(conn, addr_trunc, BT_ADDR_STR_LEN);
 
-	memcpy(addr_trunc, addr, BT_ADDR_LE_DEVICE_LEN);
-	addr_trunc[BT_ADDR_LE_DEVICE_LEN] = 0;
-
-	bt_to_upper(addr_trunc, BT_ADDR_LE_STR_LEN);
-	err = ble_conn_mgr_get_conn_by_addr(addr_trunc, &connection_ptr);
-	if (err) {
-		LOG_ERR("Connection not found for addr %s", log_strdup(addr_trunc));
-	}
-	if (conn_err || err) {
-		LOG_ERR("Failed to connect to %s (%u)", log_strdup(addr),
+	if (conn_err) {
+		LOG_ERR("Failed to connect to %s (%u)", log_strdup(addr_trunc),
 			conn_err);
 		if (connection_ptr) {
 			ble_conn_set_connected(connection_ptr, false);
 		}
 		bt_conn_unref(conn);
+		k_timer_start(&auto_conn_start_timer, K_SECONDS(3), K_SECONDS(0));
 		return;
 	}
-
 	if (connection_ptr && connection_ptr->hidden) {
 		LOG_DBG("suppressing device_connect");
 	} else {
@@ -1229,19 +1215,33 @@ static void connected(struct bt_conn *conn, uint8_t conn_err)
 		k_mutex_unlock(&output.lock);
 	}
 
-	if (!connection_ptr->connected) {
-		LOG_INF("Connected: %s", log_strdup(addr));
-		if (!connection_ptr->hidden) {
-			set_shadow_ble_conn(addr_trunc, false, true);
-		}
-		ble_conn_set_connected(connection_ptr, true);
-		ble_subscribe_device(conn, true);
+#if defined(CONFIG_BT_BONDABLE)
+	int err;
+
+	err = bt_conn_set_security(conn, BT_SECURITY_L2);
+	if (err) {
+		LOG_WRN("Failed to set security: %d", err);
 	} else {
-		LOG_INF("Reconnected: %s", log_strdup(addr));
+		LOG_INF("Security set; waiting for changed callback");
+		return;
 	}
-	if (connection_ptr->added_to_allowlist) {
-		if (!ble_add_to_allowlist(addr_trunc, false)) {
-			connection_ptr->added_to_allowlist = false;
+#endif
+
+	if (connection_ptr != NULL) {
+		if (!connection_ptr->connected) {
+			LOG_INF("Connected: %s", log_strdup(addr_trunc));
+			if (!connection_ptr->connected) {
+				set_shadow_ble_conn(addr_trunc, false, true);
+			}
+			ble_conn_set_connected(connection_ptr, true);
+			ble_subscribe_device(conn, true);
+		} else {
+			LOG_INF("Reconnected: %s", log_strdup(addr_trunc));
+		}
+		if (connection_ptr->added_to_allowlist) {
+			if (!ble_add_to_allowlist(addr_trunc, false)) {
+				connection_ptr->added_to_allowlist = false;
+			}
 		}
 	}
 
@@ -1251,20 +1251,57 @@ static void connected(struct bt_conn *conn, uint8_t conn_err)
 	k_timer_start(&auto_conn_start_timer, K_SECONDS(3), K_SECONDS(0));
 }
 
+#if defined(CONFIG_BT_BONDABLE)
+static void security_changed(struct bt_conn *conn, bt_security_t level,
+			     enum bt_security_err err)
+{
+	char addr_trunc[BT_ADDR_STR_LEN + 1];
+	struct ble_device_conn *connection_ptr;
+
+	connection_ptr = bt_conn_addr_lookup(conn, addr_trunc, BT_ADDR_STR_LEN);
+
+	if (!err) {
+		LOG_INF("Security changed: %s level %u", log_strdup(addr_trunc),
+			level);
+	} else {
+		if (err != BT_SECURITY_ERR_PAIR_NOT_SUPPORTED) {
+			LOG_WRN("Security failed: %s level %u err %d",
+				log_strdup(addr_trunc), level, err);
+			return;
+		} else {
+			LOG_INF("Pairing not supported");
+		}
+	}
+
+	if (connection_ptr != NULL) {
+		if (!connection_ptr->connected) {
+			LOG_INF("Connected: %s", log_strdup(addr_trunc));
+			set_shadow_ble_conn(addr_trunc, false, true);
+			ble_conn_set_connected(connection_ptr, true);
+			ble_subscribe_device(conn, true);
+		} else {
+			LOG_INF("Reconnected: %s", log_strdup(addr_trunc));
+		}
+		if (connection_ptr->added_to_allowlist) {
+			if (!ble_add_to_allowlist(addr_trunc, false)) {
+				connection_ptr->added_to_allowlist = false;
+			}
+		}
+	}
+
+	ui_led_set_pattern(UI_BLE_CONNECTED, PWM_DEV_1);
+
+	/* Start the timer to begin scanning again. */
+	k_timer_start(&auto_conn_start_timer, K_SECONDS(3), K_SECONDS(0));
+}
+#endif
+
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
-	char addr[BT_ADDR_LE_STR_LEN];
 	char addr_trunc[BT_ADDR_STR_LEN];
 	struct ble_device_conn *connection_ptr = NULL;
 
-	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-
-	memcpy(addr_trunc, addr, BT_ADDR_LE_DEVICE_LEN);
-	addr_trunc[BT_ADDR_LE_DEVICE_LEN] = 0;
-
-	bt_to_upper(addr_trunc, BT_ADDR_LE_STR_LEN);
-
-	ble_conn_mgr_get_conn_by_addr(addr_trunc, &connection_ptr);
+	connection_ptr = bt_conn_addr_lookup(conn, addr_trunc, BT_ADDR_STR_LEN);
 
 	if (!ble_conn_mgr_is_desired(addr_trunc)) {
 		LOG_INF("suppressing device_disconnect");
@@ -1279,7 +1316,7 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 	 * shadow; it will likely reconnect shortly
 	 */
 	if (reason != BT_HCI_ERR_REMOTE_USER_TERM_CONN) {
-		LOG_INF("Disconnected: %s (reason 0x%02x)", log_strdup(addr),
+		LOG_INF("Disconnected: %s (reason 0x%02x)", log_strdup(addr_trunc),
 			reason);
 		if (connection_ptr && !connection_ptr->hidden) {
 			(void)set_shadow_ble_conn(addr_trunc, false, false);
@@ -1298,6 +1335,7 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 			connection_ptr->added_to_allowlist = true;
 		}
 	}
+	bt_conn_unref(conn);
 
 	ui_led_set_pattern(UI_BLE_DISCONNECTED, PWM_DEV_1);
 
@@ -1308,7 +1346,144 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 static struct bt_conn_cb conn_callbacks = {
 	.connected = connected,
 	.disconnected = disconnected,
+#if defined(CONFIG_BT_BONDABLE)
+	.security_changed = security_changed
+#endif
 };
+
+#if defined(CONFIG_BT_BONDABLE)
+#if defined(CONFIG_BT_SMP_APP_PAIRING_ACCEPT)
+int user_passkey = 0;
+
+enum bt_security_err auth_pairing_accept(struct bt_conn *conn,
+					 const struct bt_conn_pairing_feat * const feat)
+{
+	enum bt_security_err out = BT_SECURITY_ERR_SUCCESS; /* for now */
+	char addr_trunc[BT_ADDR_STR_LEN];
+
+	bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
+	printk("%s: %s: %u %u %u %u %u %u\n", __FUNCTION__, addr_trunc,
+	       feat->auth_req, feat->init_key_dist, feat->io_capability,
+	       feat->max_enc_key_size, feat->oob_data_flag, feat->resp_key_dist);
+	return out;
+}
+#endif
+
+void auth_passkey_display(struct bt_conn *conn, unsigned int passkey)
+{
+	char addr_trunc[BT_ADDR_STR_LEN];
+
+	bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
+	printk("%s: %s: %d\n", __FUNCTION__, addr_trunc, passkey);
+}
+
+void auth_passkey_entry(struct bt_conn *conn)
+{
+	unsigned int passkey = 0;
+	int err;
+	char addr_trunc[BT_ADDR_STR_LEN];
+
+	bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
+	printk("%s: %s: giving fixed passkey %d\n", __FUNCTION__, addr_trunc, passkey);
+	err = bt_conn_auth_passkey_entry(conn, passkey);
+}
+
+void auth_passkey_confirm(struct bt_conn *conn, unsigned int passkey)
+{
+	int err;
+	char addr_trunc[BT_ADDR_STR_LEN];
+
+	bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
+	printk("%s: %s: checking passkey %d against %d\n", __FUNCTION__, addr_trunc,
+	       passkey, user_passkey);
+	if (passkey == user_passkey) {
+		printk("-- passkey match\n");
+		err = bt_conn_auth_passkey_confirm(conn);
+	} else {
+		printk("-- passkey incorrect\n");
+		err = bt_conn_auth_cancel(conn);
+	}
+}
+
+void auth_cancel(struct bt_conn *conn)
+{
+	char addr_trunc[BT_ADDR_STR_LEN];
+
+	bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
+	printk("%s: %s: cancelling user request\n", __FUNCTION__, addr_trunc);
+}
+
+void auth_pairing_confirm(struct bt_conn *conn)
+{
+	char addr_trunc[BT_ADDR_STR_LEN];
+	bool confirm = true;
+
+	bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
+	printk("%s: %s: confirming pairing\n", __FUNCTION__, addr_trunc);
+
+	if (confirm) {
+		printk("-- confirmed\n");
+		bt_conn_auth_pairing_confirm(conn);
+	} else {
+		printk("-- denied\n");
+		bt_conn_auth_cancel(conn);
+	}
+}
+
+void auth_pairing_complete(struct bt_conn *conn, bool bonded)
+{
+	char addr_trunc[BT_ADDR_STR_LEN];
+
+	bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
+	printk("%s: %s: pairing complete; bonded: %d\n",
+	       __FUNCTION__, addr_trunc, bonded);
+}
+
+void auth_pairing_failed(struct bt_conn *conn, enum bt_security_err reason)
+{
+	char addr_trunc[BT_ADDR_STR_LEN];
+	int err;
+
+	bt_conn_addr(conn, addr_trunc, BT_ADDR_STR_LEN);
+	printk("%s: %s: pairing failed; reason: %d\n",
+	       __FUNCTION__, addr_trunc, reason);
+	/* not clear this is the right thing to do... */
+	if (reason == BT_SECURITY_ERR_UNSPECIFIED) {
+		err = bt_unpair(BT_ID_DEFAULT, bt_conn_get_dst(conn));
+		if (err) {
+			LOG_ERR("Error %d unpairing", err);
+		} else {
+			LOG_INF("Unpaired");
+		}
+	}
+}
+
+void auth_bond_deleted(uint8_t tid, const bt_addr_le_t *peer)
+{
+	char addr_trunc[BT_ADDR_STR_LEN];
+
+	bt_addr_str(peer, addr_trunc, BT_ADDR_STR_LEN);
+	printk("%s: %s: tid: %d: bond deleted\n", __FUNCTION__, addr_trunc, tid);
+}
+
+static struct bt_conn_auth_cb auth_callbacks = {
+	.bond_deleted = auth_bond_deleted,
+	.cancel = auth_cancel,
+	.oob_data_request = NULL,
+#if defined(CONFIG_BT_SMP_APP_PAIRING_ACCEPT)
+	.pairing_accept = auth_pairing_accept,
+#endif
+	.pairing_complete = auth_pairing_complete,
+	.pairing_confirm = auth_pairing_confirm,
+	.pairing_failed = auth_pairing_failed,
+	.passkey_confirm = auth_passkey_confirm,
+	.passkey_display = auth_passkey_display,
+	.passkey_entry = auth_passkey_entry,
+#if defined(CONFIG_BT_BREDR)
+	.pincode_entry = NULL
+#endif
+};
+#endif
 
 static bool data_cb(struct bt_data *data, void *user_data)
 {
@@ -1584,6 +1759,9 @@ static void ble_ready(int err)
 	LOG_INF("Bluetooth ready");
 
 	bt_conn_cb_register(&conn_callbacks);
+#if defined(CONFIG_BT_BONDABLE)
+	bt_conn_auth_cb_register(&auth_callbacks);
+#endif
 }
 
 int ble_init(void)

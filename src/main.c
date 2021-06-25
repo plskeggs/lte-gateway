@@ -1171,11 +1171,6 @@ void main(void)
 	ui_init(power_button_handler);
 #endif
 
-	if (IS_ENABLED(CONFIG_BT_SETTINGS)) {
-		LOG_INF("Loading settings");
-		settings_load();
-	}
-
 	k_work_queue_start(&application_work_q, application_stack_area,
 			   K_THREAD_STACK_SIZEOF(application_stack_area),
 			   CONFIG_APPLICATION_WORKQUEUE_PRIORITY, NULL);
@@ -1196,6 +1191,11 @@ void main(void)
 		error_handler(ERROR_BLE, err);
 	} else {
 		ui_led_set_pattern(UI_BLE_OFF, PWM_DEV_1);
+	}
+
+	if (IS_ENABLED(CONFIG_BT_SETTINGS)) {
+		LOG_INF("Loading settings");
+		settings_load();
 	}
 
 	if (IS_ENABLED(CONFIG_WATCHDOG)) {
