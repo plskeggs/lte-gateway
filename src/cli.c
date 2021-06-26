@@ -34,10 +34,9 @@
 #include "ble_conn_mgr.h"
 #include "peripheral_dfu.h"
 #include "gateway.h"
+#include "password.h"
 
 LOG_MODULE_REGISTER(cli, CONFIG_NRF_CLOUD_GATEWAY_LOG_LEVEL);
-
-#define DEFAULT_PASSWORD CONFIG_SHELL_DEFAULT_PASSWORD
 
 /* disable for now -- breaks BLE HCI after used */
 #define PRINT_CTLR_INFO_ENABLED 0
@@ -1417,7 +1416,6 @@ static void get_dynamic_ble_fota(size_t idx, struct shell_static_entry *entry)
 SHELL_DYNAMIC_CMD_CREATE(dynamic_ble_fota, get_dynamic_ble_fota);
 #endif
 
-
 static int cmd_session(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2) {
@@ -1436,25 +1434,6 @@ static int cmd_session(const struct shell *shell, size_t argc, char **argv)
 		nct_save_session_state(flag);
 	}
 	return 0;
-}
-
-int check_passwd(char *passwd)
-{
-	return strcmp(passwd, DEFAULT_PASSWORD);
-}
-
-int is_valid_passwd(char *passwd)
-{
-	if (strlen(passwd) < 8) {
-		return -EINVAL;
-	} else {
-		return 0;
-	}
-}
-
-int set_passwd(char *passwd)
-{
-	return -ENOTSUP;
 }
 
 static int cmd_login(const struct shell *shell, size_t argc, char **argv)
@@ -1525,6 +1504,7 @@ static int cmd_logout(const struct shell *shell, size_t argc, char **argv)
 
 void cli_init(void)
 {
+	init_passwd();
 	shell_set_root_cmd("login");
 #if defined(CONFIG_STARTING_LOG_OVERRIDE)
 	for (int i = 0; i < log_src_cnt_get(CONFIG_LOG_DOMAIN_ID); i++) {
