@@ -90,6 +90,35 @@ struct rec_data_t {
 
 K_FIFO_DEFINE(rec_fifo);
 
+atomic_val_t bt_conn_getref(struct bt_conn *conn);
+static void conn_cnt_foreach(struct bt_conn *conn, void *data)
+{
+	size_t *cur_cnt = data;
+	struct bt_conn_info info;
+	char addr[BT_ADDR_LE_STR_LEN] = "n/a";
+	int err;
+
+	err = bt_conn_get_info(conn, &info);
+	if (!err) {
+		bt_addr_le_to_str(info.le.dst, addr, sizeof(addr));
+		LOG_INF("  %zd. %u, %u, %u, %u, %s", *cur_cnt, info.id, info.role, info.type, 
+			bt_conn_getref(conn), log_strdup(addr));
+	} else {
+		LOG_ERR("  %zd. Error %d getting conn info", *cur_cnt, err);
+	}
+
+	(*cur_cnt)++;
+}
+
+void print_conns(void)
+{
+	size_t conn_count = 0;
+
+	LOG_INF("List of raw BT conns:\r\n  num, id, role, type, ref, addr");
+	bt_conn_foreach(BT_CONN_TYPE_LE, conn_cnt_foreach, &conn_count);
+	LOG_INF("End of list.");
+}
+
 /* Convert ble address string to uppcase */
 void bt_to_upper(char *addr, uint8_t addr_len)
 {
