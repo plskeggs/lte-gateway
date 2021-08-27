@@ -91,7 +91,6 @@ struct rec_data_t {
 
 K_FIFO_DEFINE(rec_fifo);
 
-atomic_val_t bt_conn_getref(struct bt_conn *conn);
 static void conn_cnt_foreach(struct bt_conn *conn, void *data)
 {
 	size_t *cur_cnt = data;
@@ -102,8 +101,8 @@ static void conn_cnt_foreach(struct bt_conn *conn, void *data)
 	err = bt_conn_get_info(conn, &info);
 	if (!err) {
 		bt_addr_le_to_str(info.le.dst, addr, sizeof(addr));
-		LOG_INF("  %zd. %u, %u, %u, %u, %s", *cur_cnt, info.id, info.role, info.type, 
-			bt_conn_getref(conn), log_strdup(addr));
+		LOG_INF("  %zd. %u, %u, %u, %s", *cur_cnt, info.id, info.role, info.type, 
+			log_strdup(addr));
 	} else {
 		LOG_ERR("  %zd. Error %d getting conn info", *cur_cnt, err);
 	}
