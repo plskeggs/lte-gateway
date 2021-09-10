@@ -1,10 +1,10 @@
-.. _apricity_gateway:
+.. _nrfcloud_ble_gateway:
 
-nRF9160: Apricity Gateway
-#########################
+nRF9160: nRF Cloud BLE Gateway
+##############################
 
-The Apricity Gateway demonstrates how to use the :ref:`lib_nrf_cloud` to connect an nRF9160-based board to the `nRF Cloud`_ via LTE, connnect to multiple Bluetooth LE peripherals, and transmit their data to the cloud.
-Therefore, Apricity Gateway acts as a gateway between Bluetooth LE and the LTE connection to the nRF Cloud.
+The nRF Cloud BLE Gateway uses the :ref:`lib_nrf_cloud` to connect an nRF9160-based board to `nRF Cloud`_ via LTE, connnect to multiple Bluetooth LE peripherals, and transmit their data to the cloud.
+Therefore, this application acts as a gateway between Bluetooth LE and the LTE connection to nRF Cloud.
 
 Overview
 ********
@@ -13,25 +13,26 @@ The application uses the LTE link control driver to establish a network connecti
 It is then able to connect to multiple Bluetooth LE peripherals, and transmits the peripheral data to Nordic Semiconductor's cloud solution, `nRF Cloud`_.
 The data is visualized in nRF Cloud's web interface.
 
-The `LTE Link Monitor`_ application, implemented as part of `nRF Connect for Desktop`_  can be used to send AT commands to the device and receive the responses.
+The `LTE Link Monitor`_ application, implemented as part of `nRF Connect for Desktop`_  can be used to interact with the included shell.
 You can also send AT commands from the **Terminal** card on nRF Cloud when the device is connected.
 
-By default, the Apricity Gateway supports firmware updates through :ref:`lib_aws_fota`.
+By default, the gateway supports firmware updates through :ref:`lib_nrf_cloud_fota`.
 
-.. _apicity_gateway_requirements:
+.. _nrfcloud_ble_gateway_requirements:
 
 Requirements
 ************
 
-* The following board:
+* One of the following boards:
 
-  * |Apricity Gateway nRF9160|
+  * | Apricity Gateway nRF9160 |
+  * | :ref:`nRF9160 DK <ug_nrf9160>` |
 
 * :ref:`lte-gateway-ble` must be programmed to the nRF52 board controller on the board.
-* .. include:: /includes/spm.txt
+* The sample is configured to compile and run as a non-secure application on nRF91's Cortex-M33. Therefore, it automatically includes the :ref:`secure_partition_manager` that prepares the required peripherals to be available for the application.
 
 
-.. _apricity_gateway_user_interface:
+.. _nrfcloud_ble_gateway_user_interface:
 
 User interface
 **************
